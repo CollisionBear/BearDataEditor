@@ -1,4 +1,4 @@
-# Bona Data Editor
+# Bear Data Editor
 ![alt Bear Data editor splash](http://gamedevelopersplayground.com/files/38100729-e7d9-4164-825d-64b35ecd929e.webp)
 Bear Data Editor is a Unity3D editor extension, made to simplify working with data. 
 Classes inheriting from ScriptableObject and MonoBehaviour can use the ``[BearDataEditor]``

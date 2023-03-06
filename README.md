@@ -1,5 +1,5 @@
 # Bear Data Editor
-![alt Bear Data editor splash](http://gamedevelopersplayground.com/files/38100729-e7d9-4164-825d-64b35ecd929e.webp)
+![alt Bear Data editor splash](https://repository-images.githubusercontent.com/609868413/f422bb44-c553-4368-a2b4-95aa2fa48dca)
 Bear Data Editor is a Unity3D editor extension, made to simplify working with data. 
 Classes inheriting from ScriptableObject and MonoBehaviour can use the ``[BearDataEditor]``
 attribute (available in the ``CollisionBear.BearDataEditor`` namespace)to be exposed in the editor window.

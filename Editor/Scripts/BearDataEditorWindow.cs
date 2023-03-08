@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace CollisionBear.BearDataEditor
 {
+    [InitializeOnLoad]
     public class BearDataEditorWindow : EditorWindow
     {
         const string OnlineSourceUrl = "https://github.com/CollisionBear/beardataeditor";
@@ -121,12 +122,13 @@ namespace CollisionBear.BearDataEditor
             return result;
         }
 
+
         [MenuItem(WindowBasePath + " " + Hotkey)]
         public static void ShowWindow()
         {
-            var window = CreateInstance<BearDataEditorWindow>();
-            window.Show();
+            var window = EditorWindow.CreateWindow<BearDataEditorWindow>();
             window.minSize = MinWindowSize;
+            window.Show();
         }
 
         private BearDataEditorType SelectedType;
@@ -159,12 +161,6 @@ namespace CollisionBear.BearDataEditor
 
         private Vector2 ListScrollViewOffset;
         private Vector2 InspectorScrollViewOffset;
-
-        private void OpenNewEditor()
-        {
-            var window = CreateInstance<BearDataEditorWindow>();
-            window.Show();
-        }
 
         private void SetupStyles()
         {
@@ -290,7 +286,7 @@ namespace CollisionBear.BearDataEditor
                 }
  
                 if (GUILayout.Button("Open new editor", GUILayout.Width(128))) {
-                    OpenNewEditor();
+                    ShowWindow();
                 }
             }
 
@@ -544,7 +540,7 @@ namespace CollisionBear.BearDataEditor
             SelectedTypeName = editorType.FullClassName;
 
             UpdateFoundObjects(editorType);
-            titleContent = new GUIContent(editorType.DisplayName.text.Substring(0, Mathf.Min(name.Length, 10)), Resources.Load<Texture>("DataEditorIcon"));
+            titleContent = new GUIContent(editorType.DisplayName.text.Substring(0, Mathf.Min(editorType.DisplayName.text.Length, 10)), Resources.Load<Texture>("DataEditorIcon"));
             FilteredObjects = FoundObjects;
             FilterString = string.Empty;
             ClearAllEditors();

@@ -2,7 +2,9 @@
 ![alt Bear Data editor splash](https://repository-images.githubusercontent.com/609868413/f422bb44-c553-4368-a2b4-95aa2fa48dca)
  List, Search, and edit objects with an easy-to-access alternative to the Project view. Working with Bear Data Editor enables frictionless editing of your content from a single place as your project grows.
 
-Any Class inheriting from ScriptableObject and MonoBehaviour can use the [BearDataEditor] attribute (available in the CollisionBear.BearDataEditor namespace)to be exposed by the editor window. The editor can display any scriptable objects or prefab with a specific monobehavior component of a given type. The editor sorts the results by name and finds them in the project folder regardless of location. Support for several open editor instances simultaneously is also available, along with searching by name among instances.
+Any Class inheriting from ScriptableObject and MonoBehaviour can use the [BearDataEditor] attribute (available in the CollisionBear.BearDataEditor namespace)to be exposed by the editor window.
+The editor can display any scriptable objects, or prefab with a monobehavior component, of a given type. The editor finds them in the project folder regardless of location and sorts the results by name. 
+Support for several open editor instances simultaneously is also available, along with filtering among the objects based on their names.
 
 Next to every asset is a folder icon that reveals its location in the Unity project folder. 
 

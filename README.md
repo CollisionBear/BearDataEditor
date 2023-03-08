@@ -9,19 +9,15 @@ Support for several open editor instances simultaneously is also available, alon
 Next to every asset is a folder icon that reveals its location in the Unity project folder. 
 
 ## Getting started
-First you need a copy of the software. 
+First you need to get your hands on a copy of the editor. We support a few options. 
 
 ### Unity Package
 The editor extension can be added Unity's package manager from 'Add package from git URL'
 * <https://github.com/CollisionBear/BearDataEditor.git>
 
-
-### Asset store
-* <https://assetstore.unity.com/packages/tools/utilities/bona-data-editor-134191>
-
 ### Manual download
-You need to put the Bona Data Editor content inside your Unity project's Asset folder.
-* <https://github.com/CollisionBear/BearDataEditor.git>
+You need to put the Bear Data Editor content inside your Unity project's Asset folder.
+* <https://github.com/CollisionBear/BearDataEditor/releases/download/1.0.0/BearDataEditor-1.0.0.unitypackage>
 
 ## Example
 Decorate a class with the attribute. By default the class's name will be displayed.

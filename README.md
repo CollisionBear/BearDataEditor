@@ -1,16 +1,13 @@
 # Bear Data Editor
-![alt Bear Data editor splash](http://gamedevelopersplayground.com/files/38100729-e7d9-4164-825d-64b35ecd929e.webp)
-Bear Data Editor is a Unity3D editor extension, made to simplify working with data. 
-Classes inheriting from ScriptableObject and MonoBehaviour can use the ``[BearDataEditor]``
-attribute (available in the ``CollisionBear.BearDataEditor`` namespace)to be exposed in the editor window.
-When exposed and chosen, any scriptable object instances of a given type, or prefab with a specific
-monobehaviour component will be displayed in the editor sorted by name, regardless of their
-location in the project folder.
-Several editor instances can be open simultaneously. Searching by name among instances are supported and
-next to every asset is a folder icon, allowing you to see its location in your Unity project folder.
+![alt Bear Data editor splash](https://repository-images.githubusercontent.com/609868413/f422bb44-c553-4368-a2b4-95aa2fa48dca)
+ List, Search, and edit objects with an easy-to-access alternative to the Project view. Working with Bear Data Editor enables frictionless editing of your content from a single place as your project grows.
+
+Any Class inheriting from ScriptableObject and MonoBehaviour can use the [BearDataEditor] attribute (available in the CollisionBear.BearDataEditor namespace)to be exposed by the editor window. The editor can display any scriptable objects or prefab with a specific monobehavior component of a given type. The editor sorts the results by name and finds them in the project folder regardless of location. Support for several open editor instances simultaneously is also available, along with searching by name among instances.
+
+Next to every asset is a folder icon that reveals its location in the Unity project folder. 
 
 ## Getting started
-First you need a cope of the software. 
+First you need a copy of the software. 
 
 ### Unity Package
 The editor extension can be added Unity's package manager from 'Add package from git URL'

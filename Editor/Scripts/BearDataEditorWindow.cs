@@ -15,6 +15,8 @@ namespace CollisionBear.BearDataEditor
         const int ListViewWidth = 300;
         const int IconSize = 33;
 
+        private static readonly Vector2 MinWindowSize = new Vector2(400, 400);
+
         private static GUIContent ShowInProjectContent;
         private static GUIContent ObjectCategoryContent;
 
@@ -124,6 +126,7 @@ namespace CollisionBear.BearDataEditor
         {
             var window = CreateInstance<BearDataEditorWindow>();
             window.Show();
+            window.minSize = MinWindowSize;
         }
 
         private BearDataEditorType SelectedType;
@@ -460,15 +463,8 @@ namespace CollisionBear.BearDataEditor
             }
 
             EditorGUI.BeginChangeCheck();
-
-            var inspectorWidth = position.width - (ListViewWidth + 70);
-
-            // For some reason these values will be needed to be set several times when drawing the different editors and I don't know why.
-            var labelWidth = GetLabelWidth(inspectorWidth, 200);
-            var fieldWidth = GetLabelWidth(inspectorWidth - labelWidth, float.MaxValue);
-
             using (var scrollScope = new EditorGUILayout.ScrollViewScope(InspectorScrollViewOffset)) {
-                using (new EditorGUILayout.VerticalScope(GUILayout.Width(inspectorWidth))) {
+                using (new EditorGUILayout.VerticalScope()) {
                     InspectorScrollViewOffset = scrollScope.scrollPosition;
 
                     SelectedObjectHeaderEditor.DrawHeader();
@@ -481,29 +477,21 @@ namespace CollisionBear.BearDataEditor
 
                             EditorGUI.BeginChangeCheck();
                             if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
-                                EditorGUIUtility.labelWidth = labelWidth;
-                                EditorGUIUtility.fieldWidth = fieldWidth;
                                 selectedEditor.OnInspectorGUI();
                             } else {
-                                EditorGUIUtility.labelWidth = labelWidth;
-                                EditorGUIUtility.fieldWidth = fieldWidth;
-#if UNITY_2020_1_OR_NEWER
-                                selectedEditor.OnInspectorGUI();
-                                //selectedEditor.DrawDefaultInspector();
-#else
                                 selectedEditor.DrawDefaultInspector();
-#endif
-                            }
 
-                            if (EditorGUI.EndChangeCheck()) {
-                                string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
-                                if (PrefabInstance != null) {
-                                    PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
-                                }
                             }
 
                             DrawUILine(Color.gray);
                             EditorGUILayout.Space();
+                        }
+                    }
+
+                    if (EditorGUI.EndChangeCheck()) {
+                        string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
+                        if (PrefabInstance != null) {
+                            PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
                         }
                     }
                 }

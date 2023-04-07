@@ -459,6 +459,9 @@ namespace CollisionBear.BearDataEditor
                     InspectorScrollViewOffset = scrollScope.scrollPosition;
 
                     SelectedObjectHeaderEditor.DrawHeader();
+
+                    var anyChanges = false;
+                    var changedField = new List<string>();
                     foreach (var selectedEditor in SelectedObjectEditors) {
                         using (var changeDetection = new EditorGUI.ChangeCheckScope()) {
                             if (selectedEditor == null) {
@@ -487,8 +490,20 @@ namespace CollisionBear.BearDataEditor
                             EditorGUILayout.Space();
 
                             if (changeDetection.changed) {
+                                anyChanges = true;
+                                changedField.Add(selectedEditor.target.GetType().Name);
                                 EditorUtility.SetDirty(selectedEditor.target);
                             }
+                        }
+                    }
+
+                    if(anyChanges) {
+                        EditorUtility.SetDirty(SelectedObject.Object);
+                        Debug.Log($"Updates!\n{string.Join("\n", changedField)}");
+
+                        string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
+                        if (PrefabInstance != null) {
+                            PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
                         }
                     }
                 }

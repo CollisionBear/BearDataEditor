@@ -458,51 +458,44 @@ namespace CollisionBear.BearDataEditor
                 return;
             }
 
-            EditorGUI.BeginChangeCheck();
             using (var scrollScope = new EditorGUILayout.ScrollViewScope(InspectorScrollViewOffset)) {
                 using (new EditorGUILayout.VerticalScope()) {
                     InspectorScrollViewOffset = scrollScope.scrollPosition;
 
                     SelectedObjectHeaderEditor.DrawHeader();
-                    foreach (var selectedEditor in SelectedObjectEditors) {
-                        if (selectedEditor != null) {
-                            using (new EditorGUILayout.HorizontalScope()) {
-                                DrawComponentPreview(selectedEditor.target);
-                                EditorGUILayout.LabelField(selectedEditor.target.GetType().Name, EditorStyles.boldLabel);
+                        foreach (var selectedEditor in SelectedObjectEditors) {
+                        using (var changeDetection = new EditorGUI.ChangeCheckScope()) {
+                            if (selectedEditor != null) {
+                                using (new EditorGUILayout.HorizontalScope()) {
+                                    DrawComponentPreview(selectedEditor.target);
+                                    EditorGUILayout.LabelField(selectedEditor.target.GetType().Name, EditorStyles.boldLabel);
+                                }
+
+
+                                selectedEditor.serializedObject.Update();
+                                if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
+                                    selectedEditor.OnInspectorGUI();
+                                } else {
+                                    selectedEditor.DrawDefaultInspector();
+
+                                }
+
+                                DrawUILine(Color.gray);
+                                EditorGUILayout.Space();
                             }
 
-                            EditorGUI.BeginChangeCheck();
-                            if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
-                                selectedEditor.OnInspectorGUI();
-                            } else {
-                                selectedEditor.DrawDefaultInspector();
-
+                            if (changeDetection.changed) {
+                                EditorUtility.SetDirty(selectedEditor.target);
+                                //    EditorUtility.SetDirty(selectedEditor)
+                                //string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object); '
+                                //if (PrefabInstance != null) {
+                                //        PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
+                                //    }
                             }
-
-                            DrawUILine(Color.gray);
-                            EditorGUILayout.Space();
-                        }
-                    }
-
-                    if (EditorGUI.EndChangeCheck()) {
-                        string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
-                        if (PrefabInstance != null) {
-                            PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
                         }
                     }
                 }
             }
-
-            EditorGUI.EndChangeCheck();
-        }
-
-        private float GetLabelWidth(float totalWidth, float minWidth)
-        {
-            if (totalWidth <= minWidth) {
-                return totalWidth;
-            }
-
-            return Mathf.Min(minWidth, totalWidth);
         }
 
         public void DrawUILine(Color color, int thickness = 1, int padding = 0)

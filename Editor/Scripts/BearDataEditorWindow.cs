@@ -571,7 +571,7 @@ namespace CollisionBear.BearDataEditor
             if(CachedObjects.ContainsKey(editorType) && !force) {
                 FoundObjects = CachedObjects[editorType];
             } else {
-                FoundObjects = FindAssetsOfType(editorType.Type).OrderBy(a => a.Name).ToList();
+                FoundObjects = FindAssetsOfType(editorType.Type).ToList();
 
                 if (CachedObjects.ContainsKey(editorType)) {
                     CachedObjects[editorType] = FoundObjects;
@@ -585,9 +585,9 @@ namespace CollisionBear.BearDataEditor
         {
             var result = new List<BearDataEditorAsset>();
             if (typeof(ScriptableObject).IsAssignableFrom(type)) {
-                result = FindScriptableObjectOfType(type);
+                result = FindScriptableObjectOfType(type).OrderBy(a => a.Name).ToList();
             } else if (typeof(Component).IsAssignableFrom(type)) {
-                result = FindPrefabsWithComponentType(type);
+                result = FindPrefabsWithComponentType(type).OrderBy(a => a.Name).ToList();
             }
 
             for(int i = 0; i < result.Count; i ++) {

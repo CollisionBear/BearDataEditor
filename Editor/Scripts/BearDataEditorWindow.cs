@@ -190,15 +190,10 @@ namespace CollisionBear.BearDataEditor
 
         }
 
-
-        public void OnDisable()
-        {
-            //ClearAllEditors();
-        }
-
-
         public void OnEnable()
         {
+            AllEditors.Clear();
+
             if (EditorObjectCache == null) {
                 EditorObjectCache = LoadCacheIndex();
             }
@@ -235,7 +230,6 @@ namespace CollisionBear.BearDataEditor
                 CreateEditors(SelectedObject);
 #endif
             }
-
         }
 
         private BearDataEditorCache LoadCacheIndex()
@@ -250,6 +244,8 @@ namespace CollisionBear.BearDataEditor
             return result;
         }
 
+        // TODO: Ensure editors are never cleanup multiple times.
+        // Check so AllEditors and SelectedObjectEditors 
         private void ClearAllEditors()
         {
             if (AllEditors == null) {
@@ -269,6 +265,7 @@ namespace CollisionBear.BearDataEditor
             }
             SelectedObjectHeaderEditor = null;
         }
+
 
         public void OnGUI()
         {
@@ -463,6 +460,7 @@ namespace CollisionBear.BearDataEditor
             if (SelectedObjectEditors == null) {
                 return;
             }
+
 
             using (var scrollScope = new EditorGUILayout.ScrollViewScope(InspectorScrollViewOffset)) {
                 using (new EditorGUILayout.VerticalScope()) {
@@ -691,6 +689,7 @@ namespace CollisionBear.BearDataEditor
             }
 
             var result = Editor.CreateEditor(target);
+            AllEditors.Add(result);
             return result;
         }
 
@@ -698,6 +697,7 @@ namespace CollisionBear.BearDataEditor
         public void CreateEditors(Object selectedObject)
         {
             AllEditors.Clear();
+            SelectedObjectEditors.Clear();
 
             if (selectedObject == null) {
                 SelectedObject = null;

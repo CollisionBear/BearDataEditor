@@ -709,7 +709,6 @@ namespace CollisionBear.BearDataEditor
             if (selectedObject is GameObject) {
                 var gameObject = selectedObject as GameObject;
                 var components = gameObject.GetComponents<Component>();
-                SelectedObjectEditors = new List<Editor>();
                 for (int i = 0; i < components.Length; i++) {
                     var editor = GetOrCreateEditorFortarget(components[i]);
                     SelectedObjectEditors.Add(editor);

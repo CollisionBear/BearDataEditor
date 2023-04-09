@@ -31,7 +31,16 @@ namespace CollisionBear.BearDataEditor
 
         static BearDataEditorWindow()
         {
-            GetEditorTypes();
+            var typeAttributes = System.AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(a => a.GetTypes())
+                .Select(t => new TypeWithAttribute { Type = t, Attribute = ObjectEditorAttribute(t) })
+                .Where(t => t.Attribute != null)
+                .ToList();
+
+            AvailableEditorTypes = GetAvailableEditorType(typeAttributes);
+            DisplayNames = AvailableEditorTypes.Select(t => t.DisplayName).ToArray();
+            IconGroups = GetIconGroups(typeAttributes);
+            HotKeyMappings = GetHotkeyMappings(typeAttributes);
         }
 
         private class TypeWithAttribute
@@ -40,50 +49,56 @@ namespace CollisionBear.BearDataEditor
             public BearDataEditorAttribute Attribute;
         }
 
-        private static void GetEditorTypes()
+        private static BearDataEditorType[] GetAvailableEditorType(List<TypeWithAttribute> typeAttributes)
         {
-            var typeAttributes = System.AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Select(t => new TypeWithAttribute { Type = t, Attribute = ObjectEditorAttribute(t) })
-                .Where(t => t.Attribute != null)
-                .ToList();
-
-            AvailableEditorTypes = typeAttributes.Select(t => new BearDataEditorType {
+            return typeAttributes.Select(t => new BearDataEditorType {
                 Type = t.Type,
                 Index = typeAttributes.IndexOf(t),
                 FullClassName = t.Type.FullName,
-                DisplayName = new GUIContent(GetTypeName(t.Type))
+                DisplayName = new GUIContent(GetTypeName(t))
             }).ToArray();
-            DisplayNames = AvailableEditorTypes.Select(t => t.DisplayName).ToArray();
+        }
 
-            IconGroups = new List<List<BearDataEditorPreviewButton>>();
-            HotKeyMappings = new Dictionary<KeyCode, BearDataEditorType>();
+        private static List<List<BearDataEditorPreviewButton>> GetIconGroups(List<TypeWithAttribute> typeAttributes)
+        {
+            var result = new List<List<BearDataEditorPreviewButton>>();
 
-            if (!typeAttributes.Any(t => t.Attribute.UseIcon)) {
-                return;
+            var groupsRequired = typeAttributes.Select(t => t.Attribute.IconGroupIndex).Max() + 1;
+            for (int i = 0; i < groupsRequired; i++) {
+                result.Add(new List<BearDataEditorPreviewButton>());
             }
 
-            var groupsRequired = typeAttributes.Select(t => t.Attribute.IconGroupIndex).Max() +1;
-            for(int i = 0; i < groupsRequired; i ++) {
-                IconGroups.Add(new List<BearDataEditorPreviewButton>());
-            }
-
-            foreach(var type in typeAttributes.Where(t => t.Attribute.UseIcon)) {
+            foreach (var type in typeAttributes.Where(t => t.Attribute.UseIcon)) {
                 var editorType = AvailableEditorTypes.First(t => t.Type == type.Type);
-                IconGroups[type.Attribute.IconGroupIndex].Add(new BearDataEditorPreviewButton(
+                result[type.Attribute.IconGroupIndex].Add(
+                    new BearDataEditorPreviewButton(
                     type.Type,
                     editorType,
-                    type.Attribute));
+                    type.Attribute)
+                );
+            }
 
-                if(type.Attribute.HotKey != KeyCode.None) {
-                    if (HotKeyMappings.ContainsKey(type.Attribute.HotKey)) {
+            return result;
+        }
+
+        private static Dictionary<KeyCode, BearDataEditorType> GetHotkeyMappings(List<TypeWithAttribute> typeAttributes)
+        {
+            var result = new Dictionary<KeyCode, BearDataEditorType>();
+
+            foreach (var type in typeAttributes.Where(t => t.Attribute.UseIcon)) {
+                var editorType = AvailableEditorTypes.First(t => t.Type == type.Type);
+
+                if (type.Attribute.HotKey != KeyCode.None) {
+                    if (result.ContainsKey(type.Attribute.HotKey)) {
                         Debug.LogWarning($"[{EditorName}] - Multiple types uses the same Hot key {type.Attribute.HotKey}");
                         continue;
                     }
 
-                    HotKeyMappings.Add(type.Attribute.HotKey, editorType);
+                    result.Add(type.Attribute.HotKey, editorType);
                 }
-            } 
+            }
+
+            return result;
         }
 
         private static BearDataEditorAttribute ObjectEditorAttribute(System.Type type)
@@ -91,13 +106,12 @@ namespace CollisionBear.BearDataEditor
             return type.GetCustomAttributes(typeof(BearDataEditorAttribute), false).FirstOrDefault() as BearDataEditorAttribute;
         }
 
-        private static string GetTypeName(System.Type type)
+        private static string GetTypeName(TypeWithAttribute typeAndAttribute)
         {
-            var attribute = (BearDataEditorAttribute)type.GetCustomAttributes(typeof(BearDataEditorAttribute), false).FirstOrDefault();
-            if (attribute.DisplayName == string.Empty) {
-                return AddSpacesToSentence(type.Name);
+            if (typeAndAttribute.Attribute.DisplayName == string.Empty) {
+                return AddSpacesToSentence(typeAndAttribute.Type.Name);
             } else {
-                return attribute.DisplayName;
+                return typeAndAttribute.Attribute.DisplayName;
             }
         }
 
@@ -131,17 +145,18 @@ namespace CollisionBear.BearDataEditor
             window.Show();
         }
 
+        [SerializeField]
+        private string SelectedTypeName;        // Used to lookup the selected type, even after a recompile.
+
         private BearDataEditorType SelectedType;
 
         [SerializeField]
-        private BearDataEditorCache CacheIndex;
-        [SerializeField]
-        private string SelectedTypeName;
+        private BearDataEditorCache EditorObjectCache;
 
+        [SerializeField]
         private int SelectedObjectIndex;
 
         private BearDataEditorAsset SelectedObject = new BearDataEditorAsset();
-        private Object PrefabInstance;
 
         private List<Editor> AllEditors;
         private Editor SelectedObjectHeaderEditor;
@@ -175,15 +190,17 @@ namespace CollisionBear.BearDataEditor
 
         }
 
+
         public void OnDisable()
         {
-            ClearAllEditors();
+            //ClearAllEditors();
         }
+
 
         public void OnEnable()
         {
-            if (CacheIndex == null) {
-                CacheIndex = LoadCacheIndex();
+            if (EditorObjectCache == null) {
+                EditorObjectCache = LoadCacheIndex();
             }
 
             foreach (var group in IconGroups) {
@@ -202,20 +219,23 @@ namespace CollisionBear.BearDataEditor
                 ChangeSelectedType(AvailableEditorTypes.FirstOrDefault());
             } else {
 #if UNITY_2018_3_OR_NEWER
-                UpdateSelectedObjectIndex(SelectedType.Index);
-                if(SelectedObject == null) {
+                var selectedTypeIndex = AvailableEditorTypes
+                    .Select(t => t.FullClassName)
+                    .FirstOrDefault(t => t == SelectedTypeName);
+
+                ChangeSelectedType(AvailableEditorTypes[AvailableEditorTypes.Select(t => t.FullClassName).ToList().IndexOf(SelectedTypeName)]);
+                UpdateSelectedObjectIndex(SelectedObjectIndex);
+
+                if (SelectedObject == null) {
                     return;
                 }
 
-                if (SelectedObject.Object is GameObject) {
-                    CreateEditors(PrefabInstance);
-                } else {
-                    CreateEditors(SelectedObject.Object);
-                }
+                CreateEditors(SelectedObject.Object);
 #else
                 CreateEditors(SelectedObject);
 #endif
             }
+
         }
 
         private BearDataEditorCache LoadCacheIndex()
@@ -236,17 +256,11 @@ namespace CollisionBear.BearDataEditor
                 AllEditors = new List<Editor>();
             } else {
                 foreach (var editor in AllEditors) {
-                    if (editor != null && editor.target != null) {
-                    try {
-                        editor.ResetTarget();
-                        GameObject.DestroyImmediate(editor);
-                    } catch (System.Exception e) {
-                        Debug.LogWarning("DataEdior error on cleanup: " + e.Message);
-                    }
+                    GameObject.DestroyImmediate(editor);
                 }
             }
-                AllEditors.Clear();
-            }
+
+            AllEditors.Clear();
 
             if (SelectedObjectEditors == null) {
                 SelectedObjectEditors = new List<Editor>();
@@ -328,7 +342,7 @@ namespace CollisionBear.BearDataEditor
         {
             using (new EditorGUILayout.HorizontalScope()) {
                 using (new EditorGUILayout.VerticalScope(GUI.skin.box, GUILayout.Width(ListViewWidth))) {
-                    DisplayObjects();
+                    DisplayObjectList();
                 }
 
                 if (SelectedObject != null) {
@@ -364,16 +378,12 @@ namespace CollisionBear.BearDataEditor
                 return;
             }
 
-            if(SelectedObjectIndex < 0) {
-                SelectedObjectIndex = 0;
-            }
-
-            SelectedObjectIndex = FilteredObjects.IndexOf(SelectedObject);
-            SelectedObjectIndex = Mathf.Clamp(newIndex, 0, FilteredObjects.Count - 1);
-            ChangeSelectedObject(FilteredObjects[SelectedObjectIndex]);
+            newIndex = Mathf.Clamp(newIndex, 0, FilteredObjects.Count - 1);
+            SelectedObjectIndex = newIndex;
+            ChangeSelectedObject(FilteredObjects[newIndex]);
         }
 
-        private void DisplayObjects()
+        private void DisplayObjectList()
         {
             using (new EditorGUILayout.HorizontalScope()) {
                 EditorGUILayout.LabelField("Found " + FilteredObjects.Count());
@@ -437,7 +447,7 @@ namespace CollisionBear.BearDataEditor
 
         private GUIStyle GetGUIStyle(BearDataEditorAsset o)
         {
-            if (SelectedObject == o) {
+            if (SelectedObjectIndex == o.FilteredIndex) {
                 return SelectedStyle;
             } else {
                 return UnselectedStyle;
@@ -473,15 +483,13 @@ namespace CollisionBear.BearDataEditor
                                 EditorGUILayout.LabelField(selectedEditor.target.GetType().Name, EditorStyles.boldLabel);
                             }
 
-
-                            selectedEditor.serializedObject.Update();
                             if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
                                 EditorGUIUtility.labelWidth = 200;
-                                EditorGUIUtility.fieldWidth = 200;
+                                EditorGUIUtility.fieldWidth = 0;
                                 selectedEditor.OnInspectorGUI();
                             } else {
                                 EditorGUIUtility.labelWidth = 200;
-                                EditorGUIUtility.fieldWidth = 200;
+                                EditorGUIUtility.fieldWidth = 0;
                                 selectedEditor.DrawDefaultInspector();
 
                             }
@@ -499,12 +507,10 @@ namespace CollisionBear.BearDataEditor
 
                     if(anyChanges) {
                         EditorUtility.SetDirty(SelectedObject.Object);
-                        Debug.Log($"Updates!\n{string.Join("\n", changedField)}");
-
-                        string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
-                        if (PrefabInstance != null) {
-                            PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
-                        }
+                        //string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
+                        //if (PrefabInstance != null) {
+                        //    PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
+                        //}
                     }
                 }
             }
@@ -584,6 +590,11 @@ namespace CollisionBear.BearDataEditor
                 result = FindPrefabsWithComponentType(type);
             }
 
+            for(int i = 0; i < result.Count; i ++) {
+                result[i].Index = i;
+                result[i].FilteredIndex = i;
+            }
+
             return result;
         }
 
@@ -617,13 +628,26 @@ namespace CollisionBear.BearDataEditor
                 .Any();
         }
 
+
         public List<BearDataEditorAsset> FilterObjects(List<BearDataEditorAsset> startCollection, string filter)
         {
             if (filter == string.Empty) {
+                foreach (var item in startCollection) {
+                    item.FilteredIndex = item.Index;
+                }
                 return startCollection;
             }
 
-            return startCollection.Where(o => o.Name.ToLower().Contains(filter.ToLower())).ToList();
+            foreach(var item in startCollection) {
+                item.FilteredIndex = -1;
+            }
+
+            var result = startCollection.Where(o => o.Name.ToLower().Contains(filter.ToLower())).ToList();
+            for(int i = 0; i < result.Count; i ++) {
+                result[i].FilteredIndex = i;
+            }
+
+            return result;
         }
 
         public void ChangeSelectedObject(BearDataEditorAsset selectedObject)
@@ -646,15 +670,9 @@ namespace CollisionBear.BearDataEditor
 
 #if UNITY_2018_3_OR_NEWER
             if (selectedObject.Object is GameObject) {
-                // Unload previous
-                if (PrefabInstance != null) {
-                    PrefabUtility.UnloadPrefabContents(PrefabInstance as GameObject);
-                }
-                PrefabInstance = PrefabUtility.LoadPrefabContents(PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(selectedObject.GetObject()));
                 SelectedObject = selectedObject;
-                CreateEditors(PrefabInstance);
+                CreateEditors(selectedObject.GetObject());
             } else {
-                PrefabInstance = null;
                 SelectedObject = selectedObject;
                 CreateEditors(SelectedObject.GetObject());
             }
@@ -673,12 +691,14 @@ namespace CollisionBear.BearDataEditor
             }
 
             var result = Editor.CreateEditor(target);
-            AllEditors.Add(result);
             return result;
         }
 
+
         public void CreateEditors(Object selectedObject)
         {
+            AllEditors.Clear();
+
             if (selectedObject == null) {
                 SelectedObject = null;
                 return;

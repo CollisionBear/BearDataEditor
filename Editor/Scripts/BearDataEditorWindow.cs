@@ -192,7 +192,11 @@ namespace CollisionBear.BearDataEditor
 
         public void OnEnable()
         {
-            AllEditors.Clear();
+            if (AllEditors == null) {
+                AllEditors = new List<Editor>();
+            } else {
+                AllEditors.Clear();
+            }
 
             if (EditorObjectCache == null) {
                 EditorObjectCache = LoadCacheIndex();

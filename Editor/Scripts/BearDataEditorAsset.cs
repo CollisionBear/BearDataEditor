@@ -11,6 +11,8 @@ namespace CollisionBear.BearDataEditor
         public string Name;
         public string Path;
         public Texture2D PreviewTexture;
+        public int Index;
+        public int FilteredIndex;
 
         public BearDataEditorAsset()
         {

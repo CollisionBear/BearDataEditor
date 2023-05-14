@@ -13,10 +13,10 @@ namespace CollisionBear.BearDataEditor
         const string EditorName = "BearDataEditor";
         const string Hotkey = "#b";
         const string WindowBasePath = "Window/Bear Data Editor";
-        const int ListViewWidth = 300;
+        const int ListViewWidth = 150;
         const int IconSize = 33;
 
-        private static readonly Vector2 MinWindowSize = new Vector2(400, 400);
+        private static readonly Vector2 MinWindowSize = new Vector2(400, 200);
 
         private static GUIContent ShowInProjectContent;
         private static GUIContent ObjectCategoryContent;
@@ -63,7 +63,14 @@ namespace CollisionBear.BearDataEditor
         {
             var result = new List<List<BearDataEditorPreviewButton>>();
 
-            var groupsRequired = typeAttributes.Select(t => t.Attribute.IconGroupIndex).Max() + 1;
+            if (!typeAttributes.Any()) {
+                return result;
+            }
+
+            var groupsRequired = typeAttributes
+                .Select(t => t.Attribute.IconGroupIndex)
+                .Max() + 1;
+
             for (int i = 0; i < groupsRequired; i++) {
                 result.Add(new List<BearDataEditorPreviewButton>());
             }
@@ -181,7 +188,7 @@ namespace CollisionBear.BearDataEditor
         {
             SelectedStyle = new GUIStyle(GUI.skin.label);
             SelectedStyle.normal.textColor = Color.white;
-            SelectedStyle.normal.background = CreateTexture(300, 20, new Color(0.24f, 0.48f, 0.9f));
+            SelectedStyle.normal.background = CreateTexture(200, 20, new Color(0.24f, 0.48f, 0.9f));
 
             UnselectedStyle = new GUIStyle(GUI.skin.label);
             IconButton = new GUIStyle(GUI.skin.button) {

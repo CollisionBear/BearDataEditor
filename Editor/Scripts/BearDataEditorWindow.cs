@@ -197,15 +197,14 @@ namespace CollisionBear.BearDataEditor
 
         }
 
-
-        public void OnDisable()
-        {
-            //ClearAllEditors();
-        }
-
-
         public void OnEnable()
         {
+            if (AllEditors == null) {
+                AllEditors = new List<Editor>();
+            } else {
+                AllEditors.Clear();
+            }
+
             if (EditorObjectCache == null) {
                 EditorObjectCache = LoadCacheIndex();
             }
@@ -242,7 +241,6 @@ namespace CollisionBear.BearDataEditor
                 CreateEditors(SelectedObject);
 #endif
             }
-
         }
 
         private BearDataEditorCache LoadCacheIndex()
@@ -257,6 +255,8 @@ namespace CollisionBear.BearDataEditor
             return result;
         }
 
+        // TODO: Ensure editors are never cleanup multiple times.
+        // Check so AllEditors and SelectedObjectEditors 
         private void ClearAllEditors()
         {
             if (AllEditors == null) {
@@ -276,6 +276,7 @@ namespace CollisionBear.BearDataEditor
             }
             SelectedObjectHeaderEditor = null;
         }
+
 
         public void OnGUI()
         {
@@ -470,6 +471,7 @@ namespace CollisionBear.BearDataEditor
             if (SelectedObjectEditors == null) {
                 return;
             }
+
 
             using (var scrollScope = new EditorGUILayout.ScrollViewScope(InspectorScrollViewOffset)) {
                 using (new EditorGUILayout.VerticalScope()) {
@@ -698,6 +700,7 @@ namespace CollisionBear.BearDataEditor
             }
 
             var result = Editor.CreateEditor(target);
+            AllEditors.Add(result);
             return result;
         }
 
@@ -705,6 +708,7 @@ namespace CollisionBear.BearDataEditor
         public void CreateEditors(Object selectedObject)
         {
             AllEditors.Clear();
+            SelectedObjectEditors.Clear();
 
             if (selectedObject == null) {
                 SelectedObject = null;
@@ -716,7 +720,6 @@ namespace CollisionBear.BearDataEditor
             if (selectedObject is GameObject) {
                 var gameObject = selectedObject as GameObject;
                 var components = gameObject.GetComponents<Component>();
-                SelectedObjectEditors = new List<Editor>();
                 for (int i = 0; i < components.Length; i++) {
                     var editor = GetOrCreateEditorFortarget(components[i]);
                     SelectedObjectEditors.Add(editor);

@@ -69,7 +69,11 @@ namespace CollisionBear.BearDataEditor
 
             var groupsRequired = typeAttributes
                 .Select(t => t.Attribute.IconGroupIndex)
+                .DefaultIfEmpty(-1)
                 .Max() + 1;
+
+            // Ensure positive values
+            groupsRequired = Mathf.Max(groupsRequired, 0);
 
             for (int i = 0; i < groupsRequired; i++) {
                 result.Add(new List<BearDataEditorPreviewButton>());

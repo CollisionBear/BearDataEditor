@@ -9,5 +9,7 @@ namespace CollisionBear.BearDataEditor
         public string FullClassName;
         public GUIContent DisplayName;
         public int Index;
+
+        public override string ToString() => FullClassName;
     }
 }

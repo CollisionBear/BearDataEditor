@@ -551,7 +551,7 @@ namespace CollisionBear.BearDataEditor
 
         public void ChangeSelectedType(BearDataEditorType editorType)
         {
-            if(SelectedType == editorType) {
+            if((SelectedType?.FullClassName ?? string.Empty) == (editorType?.FullClassName ?? string.Empty)) {
                 return;
             }
 

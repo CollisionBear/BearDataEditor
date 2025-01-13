@@ -12,6 +12,7 @@ namespace CollisionBear.BearDataEditor
         private const string OnlineSourceUrl = "https://github.com/CollisionBear/beardataeditor";
         private const string EditorName = "Bear Data Editor";
         private const string Version = "1.0.10";
+        private const string CollisionBearUrl = "https://assetstore.unity.com/publishers/82099";
 
         private const string Hotkey = "#b";
         private const string WindowBasePath = "Window/Bear Data Editor";
@@ -25,6 +26,7 @@ namespace CollisionBear.BearDataEditor
         private static readonly Vector2 MinWindowSize = new Vector2(400, 200);
 
         private static GUIContent ShowInProjectContent;
+        private static Texture2D LogoTexture;
         private static GUIContent ObjectCategoryContent;
 
         private static BearDataEditorType[] AvailableEditorTypes;
@@ -221,6 +223,7 @@ namespace CollisionBear.BearDataEditor
                 }
             }
 
+            LogoTexture = Resources.Load<Texture2D>("CollsionsBearLogo");
             ShowInProjectContent = new GUIContent(Resources.Load<Texture>("ShowInProjectIcon"), "Open in project view");
             ObjectCategoryContent = new GUIContent("Object category");
 
@@ -457,9 +460,15 @@ namespace CollisionBear.BearDataEditor
         }
 
         private void DisplayFooter() {
-            using (new EditorGUILayout.VerticalScope(GUILayout.Height(FooterHeight))) {
-                EditorGUILayout.LabelField(EditorName);
-                EditorGUILayout.LabelField($"Version {Version}");
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(FooterHeight))) {
+                if(GUILayout.Button(LogoTexture, EditorStyles.label)) {
+                    Application.OpenURL(CollisionBearUrl);
+                }
+
+                using (new EditorGUILayout.VerticalScope(GUILayout.Height(FooterHeight))) {
+                    EditorGUILayout.LabelField(EditorName);
+                    EditorGUILayout.LabelField($"Version {Version}");
+                }
             }
         }
 

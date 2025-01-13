@@ -9,12 +9,18 @@ namespace CollisionBear.BearDataEditor
     [InitializeOnLoad]
     public class BearDataEditorWindow : EditorWindow
     {
-        const string OnlineSourceUrl = "https://github.com/CollisionBear/beardataeditor";
-        const string EditorName = "BearDataEditor";
-        const string Hotkey = "#b";
-        const string WindowBasePath = "Window/Bear Data Editor";
-        const int ListViewWidth = 150;
-        const int IconSize = 33;
+        private const string OnlineSourceUrl = "https://github.com/CollisionBear/beardataeditor";
+        private const string EditorName = "Bear Data Editor";
+        private const string Version = "1.0.10";
+
+        private const string Hotkey = "#b";
+        private const string WindowBasePath = "Window/Bear Data Editor";
+
+        private const int ListViewWidth = 150;
+        private const int FooterHeight = 30;
+
+        private const int ListViewItemHeight = 18;
+        private const int IconSize = 33;
 
         private static readonly Vector2 MinWindowSize = new Vector2(400, 200);
 
@@ -162,9 +168,6 @@ namespace CollisionBear.BearDataEditor
         private BearDataEditorType SelectedType;
 
         [SerializeField]
-        private BearDataEditorCache EditorObjectCache;
-
-        [SerializeField]
         private int SelectedObjectIndex;
 
         private BearDataEditorAsset SelectedObject = new BearDataEditorAsset();
@@ -185,6 +188,7 @@ namespace CollisionBear.BearDataEditor
         private GUIStyle SelectedStyle;
         private GUIStyle UnselectedStyle;
 
+        private float ScrollViewHeight = 0;
         private Vector2 ListScrollViewOffset;
         private Vector2 InspectorScrollViewOffset;
 
@@ -192,7 +196,7 @@ namespace CollisionBear.BearDataEditor
         {
             SelectedStyle = new GUIStyle(GUI.skin.label);
             SelectedStyle.normal.textColor = Color.white;
-            SelectedStyle.normal.background = CreateTexture(200, 20, new Color(0.24f, 0.48f, 0.9f));
+            SelectedStyle.normal.background = CreateTexture(200, ListViewItemHeight, new Color(0.24f, 0.48f, 0.9f));
 
             UnselectedStyle = new GUIStyle(GUI.skin.label);
             IconButton = new GUIStyle(GUI.skin.button) {
@@ -207,10 +211,6 @@ namespace CollisionBear.BearDataEditor
                 AllEditors = new List<Editor>();
             } else {
                 AllEditors.Clear();
-            }
-
-            if (EditorObjectCache == null) {
-                EditorObjectCache = LoadCacheIndex();
             }
 
             foreach (var group in IconGroups) {
@@ -245,18 +245,6 @@ namespace CollisionBear.BearDataEditor
                 CreateEditors(SelectedObject);
 #endif
             }
-        }
-
-        private BearDataEditorCache LoadCacheIndex()
-        {
-            var result = BearDataEditorCache.GetCacheIndex();
-            if (result == null) {
-                if (EditorUtility.DisplayDialog("No Cache index found", "Must create a cache index before the editor will work. This will take a few minutes", "Ok")) {
-                    result = BearDataEditorCache.CreateCacheIndex();
-                }
-            }
-
-            return result;
         }
 
         // TODO: Ensure editors are never cleanup multiple times.
@@ -405,32 +393,8 @@ namespace CollisionBear.BearDataEditor
             }
 
             DisplaySearchField();
-
-            if (FoundObjects == null) {
-                return;
-            }
-
-            using (var scrollScope = new EditorGUILayout.ScrollViewScope(ListScrollViewOffset)) {
-                ListScrollViewOffset = scrollScope.scrollPosition;
-                foreach (var foundObject in FilteredObjects.ToList()) {
-                    if (foundObject == null) {
-                        FilteredObjects.Remove(foundObject);
-                    } else {
-                        using (new EditorGUILayout.HorizontalScope()) {
-                            GUI.DrawTexture(GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16)), foundObject.GetPreview());
-                            if (GUILayout.Button(foundObject.Name, GetGUIStyle(foundObject))) {
-                                ChangeSelectedObject(foundObject);
-                            }
-
-                            if (GUILayout.Button(ShowInProjectContent, EditorStyles.label, GUILayout.MaxWidth(18))) {
-                                var assetObject = foundObject.GetObject();
-                                ProjectWindowUtil.ShowCreatedAsset(assetObject);
-                                EditorGUIUtility.PingObject(assetObject);
-                            }
-                        }
-                    }
-                }
-            }
+            DisplayScrollListView();
+            DisplayFooter();
         }
 
         public void RefreshObjects()
@@ -455,6 +419,48 @@ namespace CollisionBear.BearDataEditor
         private void UpdateFilter(string filterString)
         {
             FilteredObjects = FilterObjects(FoundObjects, filterString);
+        }
+
+        private void DisplayScrollListView() {
+            if (FoundObjects == null) {
+                return;
+            }
+
+            using (new EditorGUILayout.VerticalScope(GUI.skin.box)) {
+                using (var scrollScope = new EditorGUILayout.ScrollViewScope(ListScrollViewOffset)) {
+                    ListScrollViewOffset = scrollScope.scrollPosition;
+                    foreach (var foundObject in new List<BearDataEditorAsset>(FilteredObjects)) {
+                        if (foundObject == null) {
+                            FilteredObjects.Remove(foundObject);
+                        } else {
+                            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(ListViewItemHeight))) {
+                                GUI.DrawTexture(GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16)), foundObject.GetPreview());
+                                if (GUILayout.Button(foundObject.Name, GetGUIStyle(foundObject))) {
+                                    ChangeSelectedObject(foundObject);
+                                }
+
+                                if (GUILayout.Button(ShowInProjectContent, EditorStyles.label, GUILayout.MaxWidth(18))) {
+                                    var assetObject = foundObject.GetObject();
+                                    ProjectWindowUtil.ShowCreatedAsset(assetObject);
+                                    EditorGUIUtility.PingObject(assetObject);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (Event.current.type == EventType.Repaint) {
+                var lastRect = GUILayoutUtility.GetLastRect();
+                ScrollViewHeight = lastRect.height;
+            }
+        }
+
+        private void DisplayFooter() {
+            using (new EditorGUILayout.VerticalScope(GUILayout.Height(FooterHeight))) {
+                EditorGUILayout.LabelField(EditorName);
+                EditorGUILayout.LabelField($"Version {Version}");
+            }
         }
 
         private GUIStyle GetGUIStyle(BearDataEditorAsset o)
@@ -520,10 +526,6 @@ namespace CollisionBear.BearDataEditor
 
                     if(anyChanges) {
                         EditorUtility.SetDirty(SelectedObject.Object);
-                        //string assetPath = AssetDatabase.GetAssetPath(SelectedObject.Object);
-                        //if (PrefabInstance != null) {
-                        //    PrefabUtility.SaveAsPrefabAsset(PrefabInstance as GameObject, assetPath);
-                        //}
                     }
                 }
             }
@@ -674,8 +676,9 @@ namespace CollisionBear.BearDataEditor
             }
 
             SelectedObjectIndex = FilteredObjects.IndexOf(selectedObject);
-            
-            if(CachedSelectedIndex.ContainsKey(SelectedType)) {
+            EnsureSelectItemInView(SelectedObjectIndex);
+
+            if (CachedSelectedIndex.ContainsKey(SelectedType)) {
                 CachedSelectedIndex[SelectedType] = SelectedObjectIndex;
             }else {
                 CachedSelectedIndex.Add(SelectedType, SelectedObjectIndex);
@@ -696,6 +699,23 @@ namespace CollisionBear.BearDataEditor
 #endif
             GUI.FocusControl(null);
         }
+
+        private void EnsureSelectItemInView(int index) {
+            var expectedScrollPosition = GetExpectedScrollPosition(SelectedObjectIndex);
+
+            var scrollPositionTop = ListScrollViewOffset.y;
+            var scrollPositionBottom = scrollPositionTop + ScrollViewHeight;
+
+            if (expectedScrollPosition < scrollPositionTop) {
+                ListScrollViewOffset.y = expectedScrollPosition;
+            } else if (expectedScrollPosition > scrollPositionBottom - ListViewItemHeight) {
+                var adjustment = expectedScrollPosition - (scrollPositionBottom - ListViewItemHeight);
+                var misalignedRows = Mathf.CeilToInt(adjustment / ListViewItemHeight);
+                ListScrollViewOffset.y += misalignedRows * ListViewItemHeight;
+            }
+        }
+
+        private float GetExpectedScrollPosition(int index) => index * ListViewItemHeight;
 
         public Editor GetOrCreateEditorFortarget(Object target)
         {

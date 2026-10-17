@@ -10,6 +10,7 @@ namespace CollisionBear.BearDataEditor
         public Object Object;
         public string Name;
         public string Path;
+        [System.NonSerialized]
         public Texture2D PreviewTexture;
         public int Index;
         public int FilteredIndex;

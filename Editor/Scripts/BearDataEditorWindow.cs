@@ -158,7 +158,17 @@ namespace CollisionBear.BearDataEditor {
         private BearDataEditorType SelectedType;
 
         [SerializeField]
+
         private int SelectedObjectIndex;
+
+        [SerializeField]
+        private string SelectedAssetPath = string.Empty;
+
+        [SerializeField]
+        private string FilterString = string.Empty;
+
+        [SerializeField]
+        private List<BearDataEditorAsset> FoundObjects = new List<BearDataEditorAsset>();
 
         private BearDataEditorAsset SelectedObject = new BearDataEditorAsset();
 
@@ -166,28 +176,34 @@ namespace CollisionBear.BearDataEditor {
         private Editor SelectedObjectHeaderEditor;
         private List<Editor> SelectedObjectEditors;
 
-        private List<BearDataEditorAsset> FoundObjects = new List<BearDataEditorAsset>();
         private List<BearDataEditorAsset> FilteredObjects = new List<BearDataEditorAsset>();
 
         private Dictionary<BearDataEditorType, List<BearDataEditorAsset>> CachedObjects = new Dictionary<BearDataEditorType, List<BearDataEditorAsset>>();
 
         private Dictionary<BearDataEditorType, int> CachedSelectedIndex = new Dictionary<BearDataEditorType, int>();
 
-        private string FilterString;
         private SearchField ObjectSearchField;
         private GUIStyle SelectedStyle;
         private GUIStyle UnselectedStyle;
 
         private float ScrollViewHeight = 0;
+
+        [SerializeField]
         private Vector2 ListScrollViewOffset;
+
+        [SerializeField]
         private Vector2 InspectorScrollViewOffset;
 
         private void SetupStyles() {
             SelectedStyle = new GUIStyle(GUI.skin.label);
             SelectedStyle.normal.textColor = Color.white;
             SelectedStyle.normal.background = CreateTexture(200, ListViewItemHeight, new Color(0.24f, 0.48f, 0.9f));
+            SelectedStyle.clipping = TextClipping.Clip;
+            SelectedStyle.wordWrap = false;
 
             UnselectedStyle = new GUIStyle(GUI.skin.label);
+            UnselectedStyle.clipping = TextClipping.Clip;
+            UnselectedStyle.wordWrap = false;
             IconButton = new GUIStyle(GUI.skin.button) {
                 padding = new RectOffset(1, 1, 1, 1)
             };
@@ -214,26 +230,100 @@ namespace CollisionBear.BearDataEditor {
             ObjectCategoryContent = new GUIContent("Object category");
 
             ObjectSearchField = new SearchField();
-            if (SelectedType == null || SelectedTypeName == string.Empty || !AvailableEditorTypes.Select(t => t.FullClassName).Contains(SelectedTypeName)) {
+            if (!TryRestoreEditorState()) {
                 ChangeSelectedType(AvailableEditorTypes.FirstOrDefault());
+            }
+        }
+
+        private bool TryRestoreEditorState() {
+            if (AvailableEditorTypes == null || AvailableEditorTypes.Length == 0 || string.IsNullOrEmpty(SelectedTypeName)) {
+                return false;
+            }
+
+            var restoredType = AvailableEditorTypes.FirstOrDefault(editorType => editorType.FullClassName == SelectedTypeName);
+            if (restoredType == null) {
+                return false;
+            }
+
+            SelectedType = restoredType;
+            titleContent = new GUIContent(restoredType.DisplayName.text.Substring(0, Mathf.Min(restoredType.DisplayName.text.Length, 10)), Resources.Load<Texture>("DataEditorIcon"));
+
+            if (FoundObjects == null || FoundObjects.Count == 0) {
+                UpdateFoundObjects(restoredType, force: true);
             } else {
-#if UNITY_2018_3_OR_NEWER
-                var selectedTypeIndex = AvailableEditorTypes
-                    .Select(t => t.FullClassName)
-                    .FirstOrDefault(t => t == SelectedTypeName);
+                ReconnectAssetReferences(FoundObjects);
+                CacheFoundObjects(restoredType);
+            }
 
-                ChangeSelectedType(AvailableEditorTypes[AvailableEditorTypes.Select(t => t.FullClassName).ToList().IndexOf(SelectedTypeName)]);
-                UpdateSelectedObjectIndex(SelectedObjectIndex);
+            if (string.IsNullOrEmpty(FilterString)) {
+                FilterString = string.Empty;
+            }
 
-                if (SelectedObject == null) {
-                    return;
+            UpdateFilter(FilterString);
+            ClearAllEditors();
+            RestoreSelectedObject();
+            return true;
+        }
+
+        private void CacheFoundObjects(BearDataEditorType editorType) {
+            if (CachedObjects.ContainsKey(editorType)) {
+                CachedObjects[editorType] = FoundObjects;
+            } else {
+                CachedObjects.Add(editorType, FoundObjects);
+            }
+        }
+
+        private void ReconnectAssetReferences(List<BearDataEditorAsset> assets) {
+            for (var index = assets.Count - 1; index >= 0; index--) {
+                var asset = assets[index];
+                if (asset == null) {
+                    assets.RemoveAt(index);
+                    continue;
                 }
 
-                CreateEditors(SelectedObject.Object);
-#else
-                CreateEditors(SelectedObject);
-#endif
+                if (string.IsNullOrEmpty(asset.Path) && asset.Object != null) {
+                    asset.Path = AssetDatabase.GetAssetPath(asset.Object);
+                }
+
+                if (asset.Object == null) {
+                    asset.GetObject();
+                }
+
+                if (asset.Object == null) {
+                    assets.RemoveAt(index);
+                }
             }
+        }
+
+        private void RestoreSelectedObject() {
+            if (FilteredObjects == null || FilteredObjects.Count == 0) {
+                SelectedObject = null;
+                SelectedObjectIndex = -1;
+                return;
+            }
+
+            var selectedAsset = FindRestoredAsset();
+            if (selectedAsset == null) {
+                UpdateSelectedObjectIndex(0);
+                return;
+            }
+
+            ChangeSelectedObject(selectedAsset, keepScrollPosition: true);
+        }
+
+        private BearDataEditorAsset FindRestoredAsset() {
+            if (!string.IsNullOrEmpty(SelectedAssetPath)) {
+                var matchedByPath = FilteredObjects.FirstOrDefault(asset => asset.Path == SelectedAssetPath);
+                if (matchedByPath != null) {
+                    return matchedByPath;
+                }
+            }
+
+            if (SelectedObjectIndex >= 0 && SelectedObjectIndex < FilteredObjects.Count) {
+                return FilteredObjects[SelectedObjectIndex];
+            }
+
+            return null;
         }
 
         // TODO: Ensure editors are never cleanup multiple times.
@@ -403,19 +493,22 @@ namespace CollisionBear.BearDataEditor {
             }
 
             using (new EditorGUILayout.VerticalScope(GUI.skin.box)) {
-                using (var scrollScope = new EditorGUILayout.ScrollViewScope(ListScrollViewOffset)) {
+                using (var scrollScope = new EditorGUILayout.ScrollViewScope(ListScrollViewOffset, GUIStyle.none, GUI.skin.verticalScrollbar)) {
                     ListScrollViewOffset = scrollScope.scrollPosition;
                     foreach (var foundObject in new List<BearDataEditorAsset>(FilteredObjects)) {
                         if (foundObject == null) {
                             FilteredObjects.Remove(foundObject);
                         } else {
                             using (new EditorGUILayout.HorizontalScope(GUILayout.Height(ListViewItemHeight))) {
-                                GUI.DrawTexture(GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16)), foundObject.GetPreview());
-                                if (GUILayout.Button(foundObject.Name, GetGUIStyle(foundObject))) {
+                                GUI.DrawTexture(GUILayoutUtility.GetRect(16, ListViewItemHeight, GUILayout.Width(16), GUILayout.Height(ListViewItemHeight)), foundObject.GetPreview());
+
+                                var nameStyle = GetGUIStyle(foundObject);
+                                var nameRect = GUILayoutUtility.GetRect(0, ListViewItemHeight, GUILayout.ExpandWidth(true), GUILayout.Height(ListViewItemHeight));
+                                if (GUI.Button(nameRect, new GUIContent(foundObject.Name, foundObject.Name), nameStyle)) {
                                     ChangeSelectedObject(foundObject);
                                 }
 
-                                if (GUILayout.Button(ShowInProjectContent, EditorStyles.label, GUILayout.MaxWidth(18))) {
+                                if (GUILayout.Button(ShowInProjectContent, EditorStyles.label, GUILayout.Width(18), GUILayout.Height(ListViewItemHeight))) {
                                     var assetObject = foundObject.GetObject();
                                     ProjectWindowUtil.ShowCreatedAsset(assetObject);
                                     EditorGUIUtility.PingObject(assetObject);
@@ -636,7 +729,7 @@ namespace CollisionBear.BearDataEditor {
             return result;
         }
 
-        public void ChangeSelectedObject(BearDataEditorAsset selectedObject) {
+        public void ChangeSelectedObject(BearDataEditorAsset selectedObject, bool keepScrollPosition = false) {
             if (selectedObject == null) {
                 return;
             }
@@ -646,7 +739,10 @@ namespace CollisionBear.BearDataEditor {
             }
 
             SelectedObjectIndex = FilteredObjects.IndexOf(selectedObject);
-            EnsureSelectItemInView(SelectedObjectIndex);
+            SelectedAssetPath = GetPersistentAssetPath(selectedObject);
+            if (!keepScrollPosition) {
+                EnsureSelectItemInView(SelectedObjectIndex);
+            }
 
             if (CachedSelectedIndex.ContainsKey(SelectedType)) {
                 CachedSelectedIndex[SelectedType] = SelectedObjectIndex;
@@ -668,6 +764,19 @@ namespace CollisionBear.BearDataEditor {
             CreateEditors(SelectedObject);
 #endif
             GUI.FocusControl(null);
+        }
+
+        private static string GetPersistentAssetPath(BearDataEditorAsset asset) {
+            if (!string.IsNullOrEmpty(asset.Path)) {
+                return asset.Path;
+            }
+
+            if (asset.Object == null) {
+                return string.Empty;
+            }
+
+            asset.Path = AssetDatabase.GetAssetPath(asset.Object);
+            return asset.Path;
         }
 
         private void EnsureSelectItemInView(int index) {

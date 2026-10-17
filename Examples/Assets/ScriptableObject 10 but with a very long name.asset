@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4387bfabdc5273248b79ba2510421618, type: 3}
-  m_Name: ScriptableObject 10
+  m_Name: ScriptableObject 10 but with a very long name
   m_EditorClassIdentifier: 
   SomeIntData: 0
   SomeFloatData: 0

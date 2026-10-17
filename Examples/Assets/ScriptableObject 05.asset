@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4387bfabdc5273248b79ba2510421618, type: 3}
   m_Name: ScriptableObject 05
   m_EditorClassIdentifier: 
+  Icon: {fileID: 2800000, guid: 0e0814671fdeb284abc49a28a691e79a, type: 3}
   SomeIntData: 0
   SomeFloatData: 0
   SomeStringData: 

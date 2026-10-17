@@ -172,9 +172,7 @@ namespace CollisionBear.BearDataEditor {
 
         private BearDataEditorAsset SelectedObject = new BearDataEditorAsset();
 
-        private List<Editor> AllEditors;
-        private Editor SelectedObjectHeaderEditor;
-        private List<Editor> SelectedObjectEditors;
+        private List<Editor> SelectedObjectEditors = new List<Editor>();
 
         private List<BearDataEditorAsset> FilteredObjects = new List<BearDataEditorAsset>();
 
@@ -215,10 +213,6 @@ namespace CollisionBear.BearDataEditor {
         }
 
         public void OnEnable() {
-            if (AllEditors == null) {
-                AllEditors = new List<Editor>();
-            }
-
             foreach (var group in IconGroups) {
                 foreach (var item in group) {
                     if (item.Icon == null && item.IconPath != string.Empty) {
@@ -232,21 +226,23 @@ namespace CollisionBear.BearDataEditor {
             ObjectCategoryContent = new GUIContent("Object category");
 
             ObjectSearchField = new SearchField();
-            if (!TryRestoreEditorState()) {
+            if (CanRestoreEditorState()) {
+                RestoreEditorState();
+            } else {
                 ChangeSelectedType(AvailableEditorTypes.FirstOrDefault());
             }
         }
 
-        private bool TryRestoreEditorState() {
+        private bool CanRestoreEditorState() {
             if (AvailableEditorTypes == null || AvailableEditorTypes.Length == 0 || string.IsNullOrEmpty(SelectedTypeName)) {
                 return false;
             }
 
-            var restoredType = AvailableEditorTypes.FirstOrDefault(editorType => editorType.FullClassName == SelectedTypeName);
-            if (restoredType == null) {
-                return false;
-            }
+            return AvailableEditorTypes.Any(editorType => editorType.FullClassName == SelectedTypeName);
+        }
 
+        private void RestoreEditorState() {
+            var restoredType = AvailableEditorTypes.First(editorType => editorType.FullClassName == SelectedTypeName);
             SelectedType = restoredType;
             titleContent = new GUIContent(restoredType.DisplayName.text.Substring(0, Mathf.Min(restoredType.DisplayName.text.Length, 10)), Resources.Load<Texture>("DataEditorIcon"));
 
@@ -264,7 +260,6 @@ namespace CollisionBear.BearDataEditor {
             UpdateFilter(FilterString);
             ClearAllEditors();
             RestoreSelectedObject();
-            return true;
         }
 
         private void CacheFoundObjects(BearDataEditorType editorType) {
@@ -329,35 +324,18 @@ namespace CollisionBear.BearDataEditor {
         }
 
         private void ClearAllEditors() {
-            DestroyEditors(AllEditors);
-            DestroyEditors(SelectedObjectEditors);
-            AllEditors = new List<Editor>();
-            SelectedObjectEditors = new List<Editor>();
-            SelectedObjectHeaderEditor = null;
-        }
-
-        private static void DestroyEditors(List<Editor> editors) {
-            if (editors == null) {
+            if (SelectedObjectEditors == null) {
+                SelectedObjectEditors = new List<Editor>();
                 return;
             }
 
-            foreach (var editor in editors) {
-                DestroyEditor(editor);
+            foreach (var editor in SelectedObjectEditors) {
+                if (editor != null) {
+                    DestroyImmediate(editor);
+                }
             }
 
-            editors.Clear();
-        }
-
-        private static void DestroyEditor(Editor editor) {
-            if (editor == null) {
-                return;
-            }
-
-            try {
-                DestroyImmediate(editor);
-            } catch (System.NullReferenceException) {
-                // GameObjectInspector.OnDisable throws if its preview data was already released.
-            }
+            SelectedObjectEditors.Clear();
         }
 
 
@@ -577,7 +555,7 @@ namespace CollisionBear.BearDataEditor {
                 using (new EditorGUILayout.VerticalScope()) {
                     InspectorScrollViewOffset = scrollScope.scrollPosition;
 
-                    SelectedObjectHeaderEditor.DrawHeader();
+                    DrawObjectHeader(SelectedObject.Object);
                     var inspectorColumnWidth = GUILayoutUtility.GetRect(0f, 0f, GUIStyle.none, GUILayout.ExpandWidth(true)).width;
 
                     var anyChanges = false;
@@ -851,16 +829,24 @@ namespace CollisionBear.BearDataEditor {
 
         private float GetExpectedScrollPosition(int index) => index * ListViewItemHeight;
 
-        public Editor GetOrCreateEditorFortarget(Object target) {
+        private static void DrawObjectHeader(Object target) {
             if (target == null) {
-                throw new System.ArgumentNullException("Tried to create editor for object or component that is null");
+                return;
             }
 
-            var result = Editor.CreateEditor(target);
-            AllEditors.Add(result);
-            return result;
-        }
+            var content = EditorGUIUtility.ObjectContent(target, target.GetType());
+            using (new EditorGUILayout.HorizontalScope(GUILayout.Height(32))) {
+                var iconRect = GUILayoutUtility.GetRect(32, 32, GUILayout.Width(32), GUILayout.Height(32));
+                if (content.image != null) {
+                    GUI.DrawTexture(iconRect, content.image, ScaleMode.ScaleToFit);
+                }
 
+                using (new EditorGUILayout.VerticalScope()) {
+                    EditorGUILayout.LabelField(content.text, EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField(target.GetType().Name, EditorStyles.miniLabel);
+                }
+            }
+        }
 
         public void CreateEditors(Object selectedObject) {
             ClearAllEditors();
@@ -870,7 +856,6 @@ namespace CollisionBear.BearDataEditor {
                 return;
             }
 
-            SelectedObjectHeaderEditor = CreateTrackedEditor(selectedObject);
             if (selectedObject is GameObject gameObject) {
                 var components = gameObject.GetComponents<Component>();
                 for (int i = 0; i < components.Length; i++) {
@@ -878,17 +863,11 @@ namespace CollisionBear.BearDataEditor {
                         continue;
                     }
 
-                    SelectedObjectEditors.Add(CreateTrackedEditor(components[i]));
+                    SelectedObjectEditors.Add(Editor.CreateEditor(components[i]));
                 }
             } else {
-                SelectedObjectEditors.Add(CreateTrackedEditor(selectedObject));
+                SelectedObjectEditors.Add(Editor.CreateEditor(selectedObject));
             }
-        }
-
-        private Editor CreateTrackedEditor(Object target) {
-            var editor = Editor.CreateEditor(target);
-            AllEditors.Add(editor);
-            return editor;
         }
     }
 }

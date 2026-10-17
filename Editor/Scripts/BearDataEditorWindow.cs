@@ -210,11 +210,13 @@ namespace CollisionBear.BearDataEditor {
 
         }
 
+        private void OnDisable() {
+            ClearAllEditors();
+        }
+
         public void OnEnable() {
             if (AllEditors == null) {
                 AllEditors = new List<Editor>();
-            } else {
-                AllEditors.Clear();
             }
 
             foreach (var group in IconGroups) {
@@ -326,25 +328,36 @@ namespace CollisionBear.BearDataEditor {
             return null;
         }
 
-        // TODO: Ensure editors are never cleanup multiple times.
-        // Check so AllEditors and SelectedObjectEditors 
         private void ClearAllEditors() {
-            if (AllEditors == null) {
-                AllEditors = new List<Editor>();
-            } else {
-                foreach (var editor in AllEditors) {
-                    GameObject.DestroyImmediate(editor);
-                }
-            }
-
-            AllEditors.Clear();
-
-            if (SelectedObjectEditors == null) {
-                SelectedObjectEditors = new List<Editor>();
-            } else {
-                SelectedObjectEditors.Clear();
-            }
+            DestroyEditors(AllEditors);
+            DestroyEditors(SelectedObjectEditors);
+            AllEditors = new List<Editor>();
+            SelectedObjectEditors = new List<Editor>();
             SelectedObjectHeaderEditor = null;
+        }
+
+        private static void DestroyEditors(List<Editor> editors) {
+            if (editors == null) {
+                return;
+            }
+
+            foreach (var editor in editors) {
+                DestroyEditor(editor);
+            }
+
+            editors.Clear();
+        }
+
+        private static void DestroyEditor(Editor editor) {
+            if (editor == null) {
+                return;
+            }
+
+            try {
+                DestroyImmediate(editor);
+            } catch (System.NullReferenceException) {
+                // GameObjectInspector.OnDisable throws if its preview data was already released.
+            }
         }
 
 
@@ -360,6 +373,10 @@ namespace CollisionBear.BearDataEditor {
             HandleKeyboardInput();
             DisplayTypeSelection();
             DisplayObjectSelection();
+
+            if (AssetPreview.IsLoadingAssetPreviews()) {
+                Repaint();
+            }
         }
 
         private void DisplayTypeSelection() {
@@ -561,6 +578,7 @@ namespace CollisionBear.BearDataEditor {
                     InspectorScrollViewOffset = scrollScope.scrollPosition;
 
                     SelectedObjectHeaderEditor.DrawHeader();
+                    var inspectorColumnWidth = GUILayoutUtility.GetRect(0f, 0f, GUIStyle.none, GUILayout.ExpandWidth(true)).width;
 
                     var anyChanges = false;
                     var changedField = new List<string>();
@@ -575,16 +593,7 @@ namespace CollisionBear.BearDataEditor {
                                 EditorGUILayout.LabelField(selectedEditor.target.GetType().Name, EditorStyles.boldLabel);
                             }
 
-                            if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
-                                EditorGUIUtility.labelWidth = 200;
-                                EditorGUIUtility.fieldWidth = 0;
-                                selectedEditor.OnInspectorGUI();
-                            } else {
-                                EditorGUIUtility.labelWidth = 200;
-                                EditorGUIUtility.fieldWidth = 0;
-                                selectedEditor.DrawDefaultInspector();
-
-                            }
+                            DrawComponentInspector(selectedEditor, inspectorColumnWidth);
 
                             DrawUILine(Color.gray);
                             EditorGUILayout.Space();
@@ -602,6 +611,52 @@ namespace CollisionBear.BearDataEditor {
                     }
                 }
             }
+        }
+
+        private void DrawComponentInspector(Editor selectedEditor, float inspectorColumnWidth) {
+            var previousLabelWidth = EditorGUIUtility.labelWidth;
+            var previousFieldWidth = EditorGUIUtility.fieldWidth;
+            var previousWideMode = EditorGUIUtility.wideMode;
+            var previousHierarchyMode = EditorGUIUtility.hierarchyMode;
+
+            if (selectedEditor.target is Transform) {
+                // Using DrawDefaultInspector for the transformcomponent draws it squeezed into a weird way.
+                // This is a workaround to get it to draw correctly
+                DrawBuiltInTransformInspector(selectedEditor, inspectorColumnWidth);
+            } else if (selectedEditor.target is MonoBehaviour || selectedEditor.target is ScriptableObject) {
+                EditorGUIUtility.labelWidth = 200;
+                EditorGUIUtility.fieldWidth = 0;
+                selectedEditor.OnInspectorGUI();
+            } else {
+                EditorGUIUtility.labelWidth = 200;
+                EditorGUIUtility.fieldWidth = 0;
+                selectedEditor.DrawDefaultInspector();
+            }
+
+            EditorGUIUtility.labelWidth = previousLabelWidth;
+            EditorGUIUtility.fieldWidth = previousFieldWidth;
+            EditorGUIUtility.wideMode = previousWideMode;
+            EditorGUIUtility.hierarchyMode = previousHierarchyMode;
+        }
+
+        private static void DrawBuiltInTransformInspector(Editor transformEditor, float inspectorColumnWidth) {
+            if (inspectorColumnWidth < 1f) {
+                inspectorColumnWidth = 330f;
+            }
+
+            EditorGUIUtility.hierarchyMode = true;
+            EditorGUIUtility.wideMode = true;
+            EditorGUIUtility.fieldWidth = 0f;
+            EditorGUIUtility.labelWidth = InspectorLabelWidth(inspectorColumnWidth);
+            transformEditor.OnInspectorGUI();
+        }
+
+        private static float InspectorLabelWidth(float inspectorColumnWidth) {
+            if (inspectorColumnWidth > 330f) {
+                return Mathf.Max(inspectorColumnWidth * 0.45f - 40f, 120f);
+            }
+
+            return Mathf.Max(60f, inspectorColumnWidth - 212f);
         }
 
         public void DrawUILine(Color color, int thickness = 1, int padding = 0) {
@@ -808,26 +863,32 @@ namespace CollisionBear.BearDataEditor {
 
 
         public void CreateEditors(Object selectedObject) {
-            AllEditors.Clear();
-            SelectedObjectEditors.Clear();
+            ClearAllEditors();
 
             if (selectedObject == null) {
                 SelectedObject = null;
                 return;
             }
 
-            SelectedObjectHeaderEditor = Editor.CreateEditor(selectedObject);
-            AllEditors.Add(SelectedObjectHeaderEditor);
-            if (selectedObject is GameObject) {
-                var gameObject = selectedObject as GameObject;
+            SelectedObjectHeaderEditor = CreateTrackedEditor(selectedObject);
+            if (selectedObject is GameObject gameObject) {
                 var components = gameObject.GetComponents<Component>();
                 for (int i = 0; i < components.Length; i++) {
-                    var editor = GetOrCreateEditorFortarget(components[i]);
-                    SelectedObjectEditors.Add(editor);
+                    if (components[i] == null) {
+                        continue;
+                    }
+
+                    SelectedObjectEditors.Add(CreateTrackedEditor(components[i]));
                 }
             } else {
-                SelectedObjectEditors = new List<Editor> { Editor.CreateEditor(selectedObject) };
+                SelectedObjectEditors.Add(CreateTrackedEditor(selectedObject));
             }
+        }
+
+        private Editor CreateTrackedEditor(Object target) {
+            var editor = Editor.CreateEditor(target);
+            AllEditors.Add(editor);
+            return editor;
         }
     }
 }

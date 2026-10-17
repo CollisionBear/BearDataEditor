@@ -50,17 +50,22 @@ namespace CollisionBear.BearDataEditor
                 return PreviewTexture;
             }
 
-
-            if (Object != null) {
-                PreviewTexture = AssetPreview.GetAssetPreview(Object);
-            } else {
-                PreviewTexture = AssetDatabase.GetCachedIcon(Path) as Texture2D;
+            var asset = GetObject();
+            if (asset == null) {
+                return AssetDatabase.GetCachedIcon(Path) as Texture2D;
             }
 
-            if (PreviewTexture == null) {
-                PreviewTexture = AssetPreview.GetMiniThumbnail(Object);
+            var generatedPreview = AssetPreview.GetAssetPreview(asset);
+            if (generatedPreview != null) {
+                PreviewTexture = generatedPreview;
+                return PreviewTexture;
             }
 
+            if (AssetPreview.IsLoadingAssetPreview(asset.GetInstanceID())) {
+                return AssetPreview.GetMiniThumbnail(asset);
+            }
+
+            PreviewTexture = AssetPreview.GetMiniThumbnail(asset);
             return PreviewTexture;
         }
 

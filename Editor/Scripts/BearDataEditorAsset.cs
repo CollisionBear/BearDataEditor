@@ -2,11 +2,9 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace CollisionBear.BearDataEditor
-{ 
+namespace CollisionBear.BearDataEditor {
     [System.Serializable]
-    public class BearDataEditorAsset
-    { 
+    public class BearDataEditorAsset {
         public Object Object;
         public string Name;
         public string Path;
@@ -15,28 +13,24 @@ namespace CollisionBear.BearDataEditor
         public int Index;
         public int FilteredIndex;
 
-        public BearDataEditorAsset()
-        {
+        public BearDataEditorAsset() {
             Object = null;
             Name = "None";
             Path = string.Empty;
         }
 
-        public BearDataEditorAsset(Object o)
-        {
+        public BearDataEditorAsset(Object o) {
             Object = o;
             Name = Object.name;
             PreviewTexture = GetPreviewTexture(o);
         }
 
-        public BearDataEditorAsset(string path)
-        {
+        public BearDataEditorAsset(string path) {
             Path = path;
             Name = path.Split('/').Last().Split('.').First();
         }
 
-        public Object GetObject()
-        {
+        public Object GetObject() {
             if (Object == null) {
                 Object = AssetDatabase.LoadAssetAtPath<Object>(Path);
             }
@@ -44,8 +38,7 @@ namespace CollisionBear.BearDataEditor
             return Object;
         }
 
-        public Texture2D GetPreview()
-        {
+        public Texture2D GetPreview() {
             if (PreviewTexture != null) {
                 return PreviewTexture;
             }
@@ -53,6 +46,10 @@ namespace CollisionBear.BearDataEditor
             var asset = GetObject();
             if (asset == null) {
                 return AssetDatabase.GetCachedIcon(Path) as Texture2D;
+            }
+
+            if (asset is GameObject) {
+                return AssetPreview.GetMiniThumbnail(asset);
             }
 
             var generatedPreview = AssetPreview.GetAssetPreview(asset);
@@ -69,8 +66,11 @@ namespace CollisionBear.BearDataEditor
             return PreviewTexture;
         }
 
-        private Texture2D GetPreviewTexture(Object asset)
-        {
+        private Texture2D GetPreviewTexture(Object asset) {
+            if (asset is GameObject) {
+                return null;
+            }
+
             Texture2D foundTexture = AssetPreview.GetAssetPreview(asset);
 
             if (foundTexture == null) {

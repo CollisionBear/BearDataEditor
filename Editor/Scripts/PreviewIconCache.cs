@@ -41,7 +41,8 @@ namespace CollisionBear.BearDataEditor {
                 foreach (var assetPath in assetPaths) {
                     AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
                 }
-            } finally {
+            }
+            finally {
                 AssetDatabase.StopAssetEditing();
             }
         }

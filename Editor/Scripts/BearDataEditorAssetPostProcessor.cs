@@ -4,14 +4,11 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-namespace CollisionBear.BearDataEditor
-{
-    public class BearDataEditorAssetPostProcessor : AssetPostprocessor
-    {
+namespace CollisionBear.BearDataEditor {
+    public class BearDataEditorAssetPostProcessor : AssetPostprocessor {
         private static readonly List<string> AssetFileEndings = new List<string> { ".asset", ".prefab" };
 
-        static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths)
-        {
+        static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths) {
             var changedAssets = new List<string>();
             changedAssets.AddRange(importedAssets);
             changedAssets.AddRange(deletedAssets);

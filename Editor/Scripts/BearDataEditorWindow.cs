@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -14,6 +15,10 @@ namespace CollisionBear.BearDataEditor {
 
         private const string Hotkey = "#b";
         private const string WindowBasePath = "Window/Bear Data Editor";
+        private const string GameObjectInspectorTypeName = "GameObjectInspector";
+        private const string InspectorWindowTypeName = "UnityEditor.InspectorWindow";
+
+        private static readonly BindingFlags PrivateInstanceMembers = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
 
         private const int ListViewWidth = 150;
         private const int FooterHeight = 30;
@@ -36,6 +41,9 @@ namespace CollisionBear.BearDataEditor {
         private static GUIStyle IconButton;
 
         static BearDataEditorWindow() {
+            AssemblyReloadEvents.beforeAssemblyReload += ReleaseEditorsBeforeAssemblyReload;
+            EditorApplication.delayCall += DestroyBrokenGameObjectInspectors;
+
             var typeAttributes = System.AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(a => a.GetTypes())
                 .Select(t => new TypeWithAttribute { Type = t, Attribute = ObjectEditorAttribute(t) })
@@ -212,6 +220,15 @@ namespace CollisionBear.BearDataEditor {
             ClearAllEditors();
         }
 
+        private static void ReleaseEditorsBeforeAssemblyReload() {
+            var windows = Resources.FindObjectsOfTypeAll<BearDataEditorWindow>();
+            for (var index = 0; index < windows.Length; index++) {
+                windows[index].ClearAllEditors();
+            }
+
+            DestroyLeakedGameObjectInspectors();
+        }
+
         public void OnEnable() {
             foreach (var group in IconGroups) {
                 foreach (var item in group) {
@@ -259,6 +276,7 @@ namespace CollisionBear.BearDataEditor {
 
             UpdateFilter(FilterString);
             ClearAllEditors();
+            DestroyBrokenGameObjectInspectors();
             RestoreSelectedObject();
         }
 
@@ -329,13 +347,133 @@ namespace CollisionBear.BearDataEditor {
                 return;
             }
 
-            foreach (var editor in SelectedObjectEditors) {
-                if (editor != null) {
-                    DestroyImmediate(editor);
-                }
+            for (var index = 0; index < SelectedObjectEditors.Count; index++) {
+                DestroyTrackedEditor(SelectedObjectEditors[index]);
             }
 
             SelectedObjectEditors.Clear();
+        }
+
+        private static void DestroyTrackedEditor(Editor editor) {
+            if (editor == null) {
+                return;
+            }
+
+            PrepareGameObjectInspectorForDisable(editor);
+            DestroyImmediate(editor);
+        }
+
+        private static void DestroyBrokenGameObjectInspectors() {
+            DestroyUnownedGameObjectInspectors(brokenOnly: true);
+        }
+
+        private static void DestroyLeakedGameObjectInspectors() {
+            DestroyUnownedGameObjectInspectors(brokenOnly: false);
+        }
+
+        private static void DestroyUnownedGameObjectInspectors(bool brokenOnly) {
+            var ownedEditorIds = GetInspectorOwnedEditorIds();
+            var editors = Resources.FindObjectsOfTypeAll<Editor>();
+            for (var index = 0; index < editors.Length; index++) {
+                var editor = editors[index];
+                if (!IsUnownedGameObjectInspector(editor, ownedEditorIds, brokenOnly)) {
+                    continue;
+                }
+
+                PrepareGameObjectInspectorForDisable(editor);
+                DestroyImmediate(editor);
+            }
+        }
+
+        private static HashSet<int> GetInspectorOwnedEditorIds() {
+            var ownedEditorIds = new HashSet<int>();
+            AddOwnedEditors(ownedEditorIds, ActiveEditorTracker.sharedTracker);
+
+            var inspectorWindowType = typeof(Editor).Assembly.GetType(InspectorWindowTypeName);
+            var trackerProperty = FindInstanceProperty(inspectorWindowType, "tracker");
+            if (inspectorWindowType == null || trackerProperty == null) {
+                return ownedEditorIds;
+            }
+
+            var inspectors = Resources.FindObjectsOfTypeAll(inspectorWindowType);
+            for (var index = 0; index < inspectors.Length; index++) {
+                AddOwnedEditors(ownedEditorIds, trackerProperty.GetValue(inspectors[index], null) as ActiveEditorTracker);
+            }
+
+            return ownedEditorIds;
+        }
+
+        private static PropertyInfo FindInstanceProperty(System.Type type, string propertyName) {
+            while (type != null) {
+                var property = type.GetProperty(propertyName, PrivateInstanceMembers);
+                if (property != null) {
+                    return property;
+                }
+
+                type = type.BaseType;
+            }
+
+            return null;
+        }
+
+        private static void AddOwnedEditors(HashSet<int> ownedEditorIds, ActiveEditorTracker tracker) {
+            if (tracker == null) {
+                return;
+            }
+
+            var editors = tracker.activeEditors;
+            if (editors == null) {
+                return;
+            }
+
+            for (var index = 0; index < editors.Length; index++) {
+                if (editors[index] != null) {
+                    ownedEditorIds.Add(editors[index].GetInstanceID());
+                }
+            }
+        }
+
+        private static bool IsUnownedGameObjectInspector(Editor editor, HashSet<int> ownedEditorIds, bool brokenOnly) {
+            if (editor == null || editor.GetType().Name != GameObjectInspectorTypeName) {
+                return false;
+            }
+
+            if (ownedEditorIds.Contains(editor.GetInstanceID())) {
+                return false;
+            }
+
+            if (brokenOnly) {
+                return HasMissingPreviewState(editor);
+            }
+
+            return true;
+        }
+
+        private static bool HasMissingPreviewState(Editor editor) {
+            return FieldValueIsNull(editor, "m_PreviewInstances") || FieldValueIsNull(editor, "m_PreviewCache");
+        }
+
+        private static bool FieldValueIsNull(Editor editor, string fieldName) {
+            var field = editor.GetType().GetField(fieldName, PrivateInstanceMembers);
+            return field != null && field.GetValue(editor) == null;
+        }
+
+        private static void PrepareGameObjectInspectorForDisable(Editor editor) {
+            if (editor == null || editor.GetType().Name != GameObjectInspectorTypeName) {
+                return;
+            }
+
+            EnsureReferenceFieldExists(editor, "m_PreviewInstances");
+            EnsureReferenceFieldExists(editor, "m_PreviewCache");
+        }
+
+        private static void EnsureReferenceFieldExists(Editor editor, string fieldName) {
+            var field = editor.GetType().GetField(fieldName, PrivateInstanceMembers);
+            if (field == null || field.GetValue(editor) != null) {
+                return;
+            }
+
+            field.SetValue(editor, System.Activator.CreateInstance(field.FieldType));
         }
 
 

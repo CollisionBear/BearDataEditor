@@ -195,7 +195,8 @@ namespace CollisionBear.BearDataEditor {
             try {
                 var scaledIcon = CreateScaledIcon(iconSource.SourceTexture, iconPlacement, temporaryRenderTextures);
                 return ReadPreviewTexture(scaledIcon, previewWidth, previewHeight);
-            } finally {
+            }
+            finally {
                 RenderTexture.active = previouslyActiveRenderTexture;
                 ReleaseRenderTextures(temporaryRenderTextures);
             }

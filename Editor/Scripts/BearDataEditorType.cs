@@ -1,10 +1,8 @@
 using UnityEngine;
 
-namespace CollisionBear.BearDataEditor
-{
+namespace CollisionBear.BearDataEditor {
     [System.Serializable]
-    public class BearDataEditorType
-    {
+    public class BearDataEditorType {
         public System.Type Type;
         public string FullClassName;
         public GUIContent DisplayName;

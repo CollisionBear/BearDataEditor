@@ -28,17 +28,17 @@ namespace CollisionBear.BearDataEditor {
 
         private static readonly Vector2 MinWindowSize = new Vector2(400, 200);
 
-        private static GUIContent ShowInProjectContent;
-        private static Texture2D LogoTexture;
-        private static GUIContent ObjectCategoryContent;
+        private GUIContent ShowInProjectContent;
+        private Texture2D LogoTexture;
+        private GUIContent ObjectCategoryContent;
 
-        private static BearDataEditorType[] AvailableEditorTypes;
-        private static GUIContent[] DisplayNames;
+        private static readonly BearDataEditorType[] AvailableEditorTypes;
+        private static readonly GUIContent[] DisplayNames;
 
-        private static List<List<BearDataEditorPreviewButton>> IconGroups;
-        private static Dictionary<KeyCode, BearDataEditorType> HotKeyMappings;
+        private static readonly List<List<BearDataEditorPreviewButton>> IconGroups;
+        private static readonly Dictionary<KeyCode, BearDataEditorType> HotKeyMappings;
 
-        private static GUIStyle IconButton;
+        private GUIStyle IconButton;
 
         static BearDataEditorWindow() {
             AssemblyReloadEvents.beforeAssemblyReload += ReleaseEditorsBeforeAssemblyReload;
